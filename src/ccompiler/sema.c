@@ -89,11 +89,6 @@ typedef struct {
 } CCLabelRecord;
 
 typedef struct {
-    bool ok;
-    long long value;
-} CCConstValue;
-
-typedef struct {
     long long *case_values;
     CCSpan *case_spans;
     size_t case_count;
@@ -2303,10 +2298,10 @@ static CCSemaExpr cc_analyze_call_expression(CCSemaContext *context, const CCAst
                 cc_add_diagnostic(
                     context,
                     node->children[1]->children[index]->span,
-                    "argument %zu: expected %s, but got %s",
+                    "argument %zu has incompatible type: expected %s, but got %s",
                     index + 1,
-                    cc_type_name(argument.type),
-                    cc_type_name(function_type->parameters[index])
+                    cc_type_name(function_type->parameters[index]),
+                    cc_type_name(argument.type)
                 );
             }
             argument_count++;
@@ -2556,13 +2551,13 @@ static CCSemaExpr cc_analyze_expression(CCSemaContext *context, const CCAstNode 
                 }
 
                 if (!cc_types_castable(cast_type, value.type)) {
-cc_add_diagnostic(
-    context,
-    node->span,
-    "invalid cast: expected %s, but got %s",
-    cc_type_name(cast_type),
-    cc_type_name(value.type)
-);
+                    cc_add_diagnostic(
+                        context,
+                        node->span,
+                        "invalid cast from %s to %s",
+                        cc_type_name(value.type),
+                        cc_type_name(cast_type)
+                    );
                     return cc_invalid_expr();
                 }
             }
