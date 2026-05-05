@@ -358,3 +358,16 @@ expect_output_contains "variable 's' has incomplete type struct"
 
 expect_success "$TMP_DIR/incomplete_struct_pointer_ok.c"
 expect_output_contains "semantic analysis succeeded"
+
+# ---- Golden end-to-end feature tests ----
+expect_success "$ROOT_DIR/tests/typedef_chain_ok.c"
+expect_failure "$ROOT_DIR/tests/typedef_chain_fail.c"
+
+expect_success "$ROOT_DIR/tests/pointer_arith_ok.c"
+expect_failure "$ROOT_DIR/tests/pointer_arith_fail.c"
+
+expect_success "$ROOT_DIR/tests/struct_usage_ok.c"
+expect_failure "$ROOT_DIR/tests/struct_usage_fail.c"
+
+expect_success "$ROOT_DIR/tests/cast_ok.c"
+expect_failure "$ROOT_DIR/tests/cast_fail.c"

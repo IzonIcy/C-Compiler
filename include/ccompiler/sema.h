@@ -24,4 +24,20 @@ void cc_sema_check_translation_unit(
 );
 void cc_sema_result_free(CCSemaResult *result);
 
+
+// Utility: Constant integer folding result
+// ok: true if the node represents a valid constant expr, value contains the integer
+//     false if not a constant expr or not foldable here
+// value: folded/constant value, only meaningful if ok=true
+//
+typedef struct {
+    bool ok;
+    long long value;
+} CCConstValue;
+
+// Fold/evaluate an AST node as a constant integer expression (e.g. for array size, case label, static assert...)
+// Returns ok=false if not a constant integer expr. Does not allocate or mutate AST.
+CCConstValue cc_eval_const_integer_expr(const struct CCAstNode *node);
+
 #endif
+

@@ -1082,6 +1082,19 @@ static bool cc_types_castable(const CCSemaType *target, const CCSemaType *value)
         return true;
     }
 
+    // Restrict struct pointer casts (except when involving void*)
+    if (cc_type_is_pointer(target) && cc_type_is_pointer(value)) {
+        const CCSemaType *base_t = target->base;
+        const CCSemaType *base_v = value->base;
+        // Allow void* <-> T* casts
+        if (cc_type_is_void(base_t) || cc_type_is_void(base_v)) {
+            return true;
+        }
+        // Disallow casts between distinct struct/union pointer types
+        if (base_t && base_v && base_t->kind == CC_SEMA_TYPE_RECORD && base_v->kind == CC_SEMA_TYPE_RECORD && base_t != base_v) {
+            return false;
+        }
+    }
     if (cc_type_is_scalar(target) && cc_type_is_scalar(value)) {
         return true;
     }
@@ -1983,9 +1996,9 @@ static CCConstValue cc_make_const_value(long long value) {
     return result;
 }
 
-static CCConstValue cc_try_fold_integer_constant(const CCAstNode *node);
+CCConstValue cc_eval_const_integer_expr(const CCAstNode *node);
 
-static CCConstValue cc_try_fold_binary_constant(const CCAstNode *node) {
+static CCConstValue cc_try_fold_binary_constant(const CCAstNode *node) { // Helper for cc_eval_const_integer_expr
     CCConstValue left;
     CCConstValue right;
 
@@ -1993,8 +2006,8 @@ static CCConstValue cc_try_fold_binary_constant(const CCAstNode *node) {
         return cc_invalid_const_value();
     }
 
-    left = cc_try_fold_integer_constant(node->children[0]);
-    right = cc_try_fold_integer_constant(node->children[1]);
+    left = cc_eval_const_integer_expr(node->children[0]);
+    right = cc_eval_const_integer_expr(node->children[1]);
     if (!left.ok || !right.ok || node->text == NULL) {
         return cc_invalid_const_value();
     }
@@ -2060,7 +2073,7 @@ static CCConstValue cc_try_fold_binary_constant(const CCAstNode *node) {
     return cc_invalid_const_value();
 }
 
-static CCConstValue cc_try_fold_integer_constant(const CCAstNode *node) {
+CCConstValue cc_eval_const_integer_expr(const CCAstNode *node) {
     long long value;
 
     if (node == NULL) {
@@ -2083,7 +2096,7 @@ static CCConstValue cc_try_fold_integer_constant(const CCAstNode *node) {
                 return cc_invalid_const_value();
             }
 
-            operand = cc_try_fold_integer_constant(node->children[0]);
+            operand = cc_eval_const_integer_expr(node->children[0]);
             if (!operand.ok) {
                 return operand;
             }
@@ -2103,7 +2116,7 @@ static CCConstValue cc_try_fold_integer_constant(const CCAstNode *node) {
             return cc_invalid_const_value();
         }
         case CC_AST_BINARY_EXPRESSION:
-            return cc_try_fold_binary_constant(node);
+            return cc_try_fold_binary_constant(node); // Internal helper, ok for static
         case CC_AST_CONDITIONAL_EXPRESSION: {
             CCConstValue condition;
 
@@ -2111,20 +2124,20 @@ static CCConstValue cc_try_fold_integer_constant(const CCAstNode *node) {
                 return cc_invalid_const_value();
             }
 
-            condition = cc_try_fold_integer_constant(node->children[0]);
+            condition = cc_eval_const_integer_expr(node->children[0]);
             if (!condition.ok) {
                 return condition;
             }
 
             return condition.value != 0
-                ? cc_try_fold_integer_constant(node->children[1])
-                : cc_try_fold_integer_constant(node->children[2]);
+                ? cc_eval_const_integer_expr(node->children[1])
+                : cc_eval_const_integer_expr(node->children[2]);
         }
         case CC_AST_CAST_EXPRESSION:
             if (node->child_count < 2) {
                 return cc_invalid_const_value();
             }
-            return cc_try_fold_integer_constant(node->children[1]);
+            return cc_eval_const_integer_expr(node->children[1]);
         default:
             return cc_invalid_const_value();
     }
@@ -2290,7 +2303,7 @@ static CCSemaExpr cc_analyze_call_expression(CCSemaContext *context, const CCAst
                 cc_add_diagnostic(
                     context,
                     node->children[1]->children[index]->span,
-                    "argument %zu has incompatible type %s, expected %s",
+                    "argument %zu: expected %s, but got %s",
                     index + 1,
                     cc_type_name(argument.type),
                     cc_type_name(function_type->parameters[index])
@@ -2543,13 +2556,13 @@ static CCSemaExpr cc_analyze_expression(CCSemaContext *context, const CCAstNode 
                 }
 
                 if (!cc_types_castable(cast_type, value.type)) {
-                    cc_add_diagnostic(
-                        context,
-                        node->span,
-                        "invalid cast from %s to %s",
-                        cc_type_name(value.type),
-                        cc_type_name(cast_type)
-                    );
+cc_add_diagnostic(
+    context,
+    node->span,
+    "invalid cast: expected %s, but got %s",
+    cc_type_name(cast_type),
+    cc_type_name(value.type)
+);
                     return cc_invalid_expr();
                 }
             }
@@ -2757,7 +2770,7 @@ static bool cc_visit_statement(CCSemaContext *context, const CCAstNode *statemen
                 if (!cc_type_is_integer(value_expr.type)) {
                     cc_add_diagnostic(context, statement->children[0]->span, "case label must have integer type");
                 }
-                folded = cc_try_fold_integer_constant(statement->children[0]);
+                folded = cc_eval_const_integer_expr(statement->children[0]);
                 if (!folded.ok) {
                     cc_add_diagnostic(context, statement->children[0]->span, "case label must be an integer constant expression");
                 } else {
@@ -2807,7 +2820,7 @@ static bool cc_visit_statement(CCSemaContext *context, const CCAstNode *statemen
                     cc_add_diagnostic(
                         context,
                         statement->children[0]->span,
-                        "return value has incompatible type %s, expected %s",
+                        "return value type mismatch: expected %s, but got %s",
                         cc_type_name(value.type),
                         cc_type_name(context->current_return_type)
                     );
@@ -2948,7 +2961,7 @@ static void cc_visit_declaration(CCSemaContext *context, const CCAstNode *declar
                 cc_add_diagnostic(
                     context,
                     initializer->span,
-                    "initializer for '%s' has incompatible type %s, expected %s",
+                    "initializer for '%s': expected %s, but got %s",
                     name == NULL ? "<unnamed>" : name,
                     cc_type_name(expr.type),
                     cc_type_name(declared_type)

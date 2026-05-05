@@ -555,8 +555,14 @@ static CCConstValue cc_make_const_value(long long value) {
     return result;
 }
 
-static CCConstValue cc_try_fold_integer_constant(const CCAstNode *expression);
+#include "ccompiler/sema.h"
+// Use cc_eval_const_integer_expr from sema.h — unified constant folding
 
+
+// Old constant folding logic now unused and replaced by sema's cc_eval_const_integer_expr, see sema.c
+#if 0
+// Old constant folding logic now unused and replaced by sema's cc_eval_const_integer_expr, see sema.c
+#if 0
 static CCConstValue cc_try_fold_binary_constant(const CCAstNode *expression) {
     CCConstValue left;
     CCConstValue right;
@@ -565,8 +571,8 @@ static CCConstValue cc_try_fold_binary_constant(const CCAstNode *expression) {
         return cc_invalid_const_value();
     }
 
-    left = cc_try_fold_integer_constant(expression->children[0]);
-    right = cc_try_fold_integer_constant(expression->children[1]);
+    left = cc_eval_const_integer_expr(expression->children[0]);
+    right = cc_eval_const_integer_expr(expression->children[1]);
     if (!left.ok || !right.ok || expression->text == NULL) {
         return cc_invalid_const_value();
     }
@@ -632,7 +638,7 @@ static CCConstValue cc_try_fold_binary_constant(const CCAstNode *expression) {
     return cc_invalid_const_value();
 }
 
-static CCConstValue cc_try_fold_integer_constant(const CCAstNode *expression) {
+static CCConstValue cc_eval_const_integer_expr(const CCAstNode *expression) {
     long long value;
 
     if (expression == NULL) {
@@ -656,7 +662,7 @@ static CCConstValue cc_try_fold_integer_constant(const CCAstNode *expression) {
                 return cc_invalid_const_value();
             }
 
-            operand = cc_try_fold_integer_constant(expression->children[0]);
+            operand = cc_eval_const_integer_expr(expression->children[0]);
             if (!operand.ok) {
                 return operand;
             }
@@ -684,20 +690,20 @@ static CCConstValue cc_try_fold_integer_constant(const CCAstNode *expression) {
                 return cc_invalid_const_value();
             }
 
-            condition = cc_try_fold_integer_constant(expression->children[0]);
+            condition = cc_eval_const_integer_expr(expression->children[0]);
             if (!condition.ok) {
                 return condition;
             }
 
             return condition.value != 0
-                ? cc_try_fold_integer_constant(expression->children[1])
-                : cc_try_fold_integer_constant(expression->children[2]);
+                ? cc_eval_const_integer_expr(expression->children[1])
+                : cc_eval_const_integer_expr(expression->children[2]);
         }
         case CC_AST_CAST_EXPRESSION:
             if (expression->child_count < 2) {
                 return cc_invalid_const_value();
             }
-            return cc_try_fold_integer_constant(expression->children[1]);
+            return cc_eval_const_integer_expr(expression->children[1]);
         default:
             return cc_invalid_const_value();
     }
@@ -739,7 +745,7 @@ static void cc_collect_switch_layout(CCCodegenContext *context, CCSwitchLayout *
                 return;
             }
 
-            folded = cc_try_fold_integer_constant(statement->children[0]);
+            folded = cc_eval_const_integer_expr(statement->children[0]);
             if (!folded.ok) {
                 cc_add_diagnostic(context, statement->children[0]->span, "switch case is not a constant expression during code generation");
             } else {
@@ -1143,7 +1149,7 @@ static char *cc_codegen_expression(CCCodegenContext *context, const CCAstNode *e
         return cc_duplicate_string("<null>");
     }
 
-    folded = cc_try_fold_integer_constant(expression);
+    folded = cc_eval_const_integer_expr(expression);
     if (folded.ok) {
         return cc_format_string("%lld", folded.value);
     }
