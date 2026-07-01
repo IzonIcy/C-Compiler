@@ -7,7 +7,7 @@ TARGET := build/bin/C-Compiler
 SOURCES := $(wildcard src/ccompiler/*.c)
 OBJECTS := $(patsubst src/%.c,build/obj/%.o,$(SOURCES))
 
-.PHONY: all clean test analyze verify
+.PHONY: all clean test analyze verify sanitizers
 
 all: $(TARGET)
 
@@ -20,16 +20,22 @@ build/obj/%.o: src/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 test: $(TARGET)
+	sh tests/data_driven_smoke.sh
 	sh tests/lexer_smoke.sh
 	sh tests/parser_smoke.sh
 	sh tests/preprocessor_smoke.sh
 	sh tests/sema_smoke.sh
 	sh tests/codegen_smoke.sh
+	sh tests/clang_diff.sh
 
 analyze:
 	$(ANALYZER) --analyze $(CPPFLAGS) $(CFLAGS) src/ccompiler/*.c
 
 verify: test analyze
+
+sanitizers:
+	$(MAKE) clean
+	$(MAKE) test CFLAGS="$(CFLAGS) -fsanitize=address,undefined -fno-omit-frame-pointer"
 
 clean:
 	rm -rf build

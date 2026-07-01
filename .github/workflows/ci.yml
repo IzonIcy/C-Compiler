@@ -8,12 +8,36 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  test-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [clang, gcc]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Run tests
+        run: make clean && make test CC=${{ matrix.cc }}
+
+  analyze:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Run verification
-        run: make verify
+      - name: Run static analysis
+        run: make analyze ANALYZER=clang
+
+  sanitizers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Run sanitizer tests
+        run: make sanitizers CC=clang

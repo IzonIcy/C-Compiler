@@ -1,4 +1,5 @@
 #include "ccompiler/parser.h"
+#include "ccompiler/util.h"
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -85,31 +86,7 @@ const char *cc_ast_kind_name(CCAstKind kind) {
     return cc_ast_safe_kind_name(kind);
 }
 
-static void *cc_reallocate_or_die(void *memory, size_t size) {
-    void *result;
 
-    if (size == 0) {
-        size = 1;
-    }
-
-    result = realloc(memory, size);
-    if (result == NULL) {
-        fprintf(stderr, "fatal: out of memory\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return result;
-}
-
-static char *cc_duplicate_string(const char *text) {
-    size_t length;
-    char *copy;
-
-    length = strlen(text) + 1;
-    copy = cc_reallocate_or_die(NULL, length);
-    memcpy(copy, text, length);
-    return copy;
-}
 
 static char *cc_duplicate_source_range(const CCSourceView *source, size_t start, size_t end) {
     char *copy;
@@ -1895,31 +1872,6 @@ static CCAstNode *cc_parse_external_declaration(CCParser *parser) {
     }
 
     return cc_parse_declaration_from_parts(parser, specifiers, declarator.node);
-}
-
-static void cc_print_indent(FILE *out, unsigned indent) {
-    while (indent-- > 0) {
-        fputc(' ', out);
-    }
-}
-
-void cc_ast_print(FILE *out, const CCAstNode *node, unsigned indent) {
-    size_t index;
-
-    if (node == NULL) {
-        return;
-    }
-
-    cc_print_indent(out, indent);
-    fprintf(out, "%s", cc_ast_safe_kind_name(node->kind));
-    if (node->text != NULL) {
-        fprintf(out, ": %s", node->text);
-    }
-    fputc('\n', out);
-
-    for (index = 0; index < node->child_count; index++) {
-        cc_ast_print(out, node->children[index], indent + 2);
-    }
 }
 
 void cc_parse_translation_unit(const CCLexResult *lex_result, CCParseResult *result) {

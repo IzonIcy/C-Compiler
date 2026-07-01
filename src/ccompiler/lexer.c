@@ -1,4 +1,5 @@
 #include "ccompiler/lexer.h"
+#include "ccompiler/util.h"
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -138,31 +139,7 @@ static const CCPunctuatorEntry cc_punctuator_table[] = {
     {">", 1, CC_TOKEN_GREATER},
 };
 
-static void *cc_reallocate_or_die(void *memory, size_t size) {
-    void *result;
 
-    if (size == 0) {
-        size = 1;
-    }
-
-    result = realloc(memory, size);
-    if (result == NULL) {
-        fprintf(stderr, "fatal: out of memory\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return result;
-}
-
-static char *cc_duplicate_string(const char *text) {
-    size_t length;
-    char *copy;
-
-    length = strlen(text) + 1;
-    copy = cc_reallocate_or_die(NULL, length);
-    memcpy(copy, text, length);
-    return copy;
-}
 
 static void cc_grow_token_buffer(CCTokenBuffer *buffer) {
     size_t new_capacity;

@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "ccompiler/preprocessor.h"
+#include "ccompiler/util.h"
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -60,40 +61,7 @@ typedef struct {
     size_t length;
 } CCLoadedFile;
 
-static void *cc_reallocate_or_die(void *memory, size_t size) {
-    void *result;
 
-    if (size == 0) {
-        size = 1;
-    }
-
-    result = realloc(memory, size);
-    if (result == NULL) {
-        fprintf(stderr, "fatal: out of memory\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return result;
-}
-
-static char *cc_duplicate_string(const char *text) {
-    size_t length;
-    char *copy;
-
-    length = strlen(text) + 1;
-    copy = cc_reallocate_or_die(NULL, length);
-    memcpy(copy, text, length);
-    return copy;
-}
-
-static char *cc_duplicate_range(const char *text, size_t length) {
-    char *copy;
-
-    copy = cc_reallocate_or_die(NULL, length + 1);
-    memcpy(copy, text, length);
-    copy[length] = '\0';
-    return copy;
-}
 
 static void cc_builder_append_range(CCStringBuilder *builder, const char *text, size_t length) {
     size_t required;

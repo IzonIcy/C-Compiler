@@ -76,73 +76,73 @@ The backend lowers parsed C code into a readable intermediate representation (IR
 
 Build the compiler:
 
-bash
+```bash
 make
-
+```
 
 The binary is written to:
 
-text
+```text
 build/bin/C-Compiler
-
+```
 
 Run the raw lexer:
 
-bash
+```bash
 ./build/bin/C-Compiler lex examples/feature_showcase.c
-
+```
 
 You can also omit lex:
 
-bash
+```bash
 ./build/bin/C-Compiler examples/feature_showcase.c
-
+```
 
 Run preprocessing:
 
-bash
+```bash
 ./build/bin/C-Compiler preprocess examples/feature_showcase.c
-
+```
 
 Print the raw AST:
 
-bash
+```bash
 ./build/bin/C-Compiler parse examples/feature_showcase.c
-
+```
 
 Run semantic analysis on the preprocessed translation unit:
 
-bash
+```bash
 ./build/bin/C-Compiler check examples/feature_showcase.c
-
+```
 
 Emit lowered IR:
 
-bash
-./build/bin/C-Compiler code gen examples/feature_showcase.c
-
+```bash
+./build/bin/C-Compiler codegen examples/feature_showcase.c
+```
 
 ## Example Output
 
 Semantic analysis:
 
-text
+```text
 semantic analysis succeeded
 functions: 2
 globals: 0
 typedefs: 1
-
+```
 
 Code generation:
 
-text
+```text
 func main(void) -> int
 entry:
   t0 = call mix(7, 0.25)
   t1 = cast int, t0
   ret t1
 end function
-
+```
 
 ## Installation
 
@@ -154,17 +154,17 @@ end function
 
 ### Build
 
-bash
+```bash
 git clone <https://github.com/IzonIcy/C-Compiler>
 cd C-Compiler
 make
-
+```
 
 ### Optional PATH Install
 
-bash
+```bash
 install -m 755 build/bin/C-Compiler /usr/local/bin/C-Compiler
-
+```
 
 If your system requires elevated permissions for /usr/local/bin, use sudo.
 
@@ -172,24 +172,25 @@ If your system requires elevated permissions for /usr/local/bin, use sudo.
 
 Run the smoke-test suite:
 
-bash
+```bash
 make test
-
+```
 
 Run static analysis:
 
-bash
+```bash
 make analyze
-
+```
 
 Run both:
 
-bash
+```bash
 make verify
-
+```
 
 The repository also includes a GitHub Actions workflow at
-.github/workflows/ci.yml that runs make verify on pushes and pull requests.
+.github/workflows/ci.yml that runs compiler-matrix tests (clang and gcc),
+static analysis, and sanitizer-backed test runs on pushes and pull requests.
 
 ## Limits
 
