@@ -1,0 +1,7 @@
+# mode|relative_path|expected_exit_code|expected_output_snippet
+lex_tokens|examples/feature_showcase.c|0|identifier               main
+preprocess|tests/test_pragma_once.c|0|return 42;
+parse|examples/feature_showcase.c|0|function_definition: main
+check|tests/typedef_chain_ok.c|0|semantic analysis succeeded
+check|tests/test_error.c|1|use of undeclared identifier 'undeclared_var'
+codegen|examples/feature_showcase.c|0|func main(void) -> int

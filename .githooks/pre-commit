@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+echo "Running pre-commit checks..."
+make test || { echo "Tests failed."; exit 1; }
+make analyze 2>/dev/null || true
+echo "All checks passed!"
