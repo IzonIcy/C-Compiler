@@ -66,4 +66,4 @@ jobs:
         run: |
           mkdir -p build/fuzz-corpus
           cp examples/*.c tests/*.c build/fuzz-corpus/
-          ./build/bin/fuzz-pipeline -max_total_time=30 -print_final_stats=1 build/fuzz-corpus
+          ./build/bin/fuzz-pipeline -max_total_time=30 -timeout=5 -print_final_stats=1 build/fuzz-corpus

@@ -30,6 +30,7 @@ typedef struct {
     size_t *typedef_scope_starts;
     size_t typedef_scope_count;
     size_t typedef_scope_capacity;
+    size_t expression_depth;
 } CCParser;
 
 static const char *const cc_ast_kind_names[] = {
@@ -208,6 +209,10 @@ static void cc_add_diagnostic(CCParser *parser, CCSpan span, const char *format,
     va_list args;
     va_list copy;
 
+    if (!cc_diagnostic_buffer_can_add(&parser->diagnostics, CC_DIAGNOSTIC_ERROR)) {
+        return;
+    }
+
     if (parser->diagnostics.count == parser->diagnostics.capacity) {
         cc_grow_diagnostic_buffer(&parser->diagnostics);
     }
@@ -245,6 +250,25 @@ static void cc_add_diagnostic(CCParser *parser, CCSpan span, const char *format,
 
 static void cc_expected(CCParser *parser, const char *message) {
     cc_add_diagnostic(parser, cc_current_span(parser), "%s", message);
+}
+
+/* Expression parsing recurses per nesting level (parens, unary operators,
+ * casts, conditionals, assignments). Deeply nested input can otherwise
+ * exhaust the stack; cap the depth like real compilers do. */
+#define CC_MAX_EXPRESSION_NESTING 200
+
+static bool cc_enter_expression_nesting(CCParser *parser) {
+    if (parser->expression_depth >= CC_MAX_EXPRESSION_NESTING) {
+        cc_expected(parser, "expression nesting too deep");
+        return false;
+    }
+
+    parser->expression_depth++;
+    return true;
+}
+
+static void cc_leave_expression_nesting(CCParser *parser) {
+    parser->expression_depth--;
 }
 
 static CCAstNode *cc_new_ast_node(CCAstKind kind, CCSpan span, const char *text) {
@@ -1033,7 +1057,11 @@ static CCAstNode *cc_parse_primary_expression(CCParser *parser) {
     }
 
     if (cc_match(parser, CC_TOKEN_LPAREN)) {
+        if (!cc_enter_expression_nesting(parser)) {
+            return NULL;
+        }
         expression = cc_parse_expression(parser);
+        cc_leave_expression_nesting(parser);
         cc_expect(parser, CC_TOKEN_RPAREN, "expected ')' after parenthesized expression");
         return expression;
     }
@@ -1057,7 +1085,11 @@ static CCAstNode *cc_parse_postfix_expression(CCParser *parser) {
             CCSpan start;
 
             start = expression->span;
+            if (!cc_enter_expression_nesting(parser)) {
+                return expression;
+            }
             index_expression = cc_parse_expression(parser);
+            cc_leave_expression_nesting(parser);
             cc_expect(parser, CC_TOKEN_RBRACKET, "expected ']' after subscript expression");
 
             node = cc_new_ast_node(CC_AST_SUBSCRIPT_EXPRESSION, cc_span_from_start_to_previous(parser, start), NULL);
@@ -1082,7 +1114,11 @@ static CCAstNode *cc_parse_postfix_expression(CCParser *parser) {
                 for (;;) {
                     CCAstNode *argument;
 
+                    if (!cc_enter_expression_nesting(parser)) {
+                        break;
+                    }
                     argument = cc_parse_assignment_expression(parser);
+                    cc_leave_expression_nesting(parser);
                     cc_ast_add_child(arguments, argument);
 
                     if (!cc_match(parser, CC_TOKEN_COMMA)) {
@@ -1173,7 +1209,11 @@ static CCAstNode *cc_parse_unary_expression(CCParser *parser) {
         || cc_match(parser, CC_TOKEN_BANG)
         || cc_match(parser, CC_TOKEN_TILDE)) {
         operator_token = *cc_previous_token(parser);
+        if (!cc_enter_expression_nesting(parser)) {
+            return NULL;
+        }
         operand = cc_parse_unary_expression(parser);
+        cc_leave_expression_nesting(parser);
         if (operand == NULL) {
             return NULL;
         }
@@ -1201,10 +1241,18 @@ static CCAstNode *cc_parse_unary_expression(CCParser *parser) {
         }
 
         if (cc_previous_token(parser)->kind == CC_TOKEN_LPAREN) {
+            if (!cc_enter_expression_nesting(parser)) {
+                return NULL;
+            }
             operand = cc_parse_expression(parser);
+            cc_leave_expression_nesting(parser);
             cc_expect(parser, CC_TOKEN_RPAREN, "expected ')' after expression");
         } else {
+            if (!cc_enter_expression_nesting(parser)) {
+                return NULL;
+            }
             operand = cc_parse_unary_expression(parser);
+            cc_leave_expression_nesting(parser);
         }
 
         if (operand == NULL) {
@@ -1232,7 +1280,12 @@ static CCAstNode *cc_parse_cast_expression(CCParser *parser) {
         cc_advance(parser);
         type_name = cc_parse_type_name(parser);
         cc_expect(parser, CC_TOKEN_RPAREN, "expected ')' after cast type");
+        if (!cc_enter_expression_nesting(parser)) {
+            cc_free_ast(type_name);
+            return NULL;
+        }
         operand = cc_parse_cast_expression(parser);
+        cc_leave_expression_nesting(parser);
         if (type_name == NULL || operand == NULL) {
             cc_free_ast(type_name);
             cc_free_ast(operand);
@@ -1469,6 +1522,11 @@ static CCAstNode *cc_parse_conditional_expression(CCParser *parser) {
         return condition;
     }
 
+    if (condition == NULL) {
+        /* '?' with no parseable condition; nothing was built yet. */
+        return NULL;
+    }
+
     {
         CCAstNode *node;
         CCAstNode *then_expression;
@@ -1478,7 +1536,12 @@ static CCAstNode *cc_parse_conditional_expression(CCParser *parser) {
         start = condition->span;
         then_expression = cc_parse_expression(parser);
         cc_expect(parser, CC_TOKEN_COLON, "expected ':' in conditional expression");
+        if (!cc_enter_expression_nesting(parser)) {
+            cc_free_ast(then_expression);
+            return NULL;
+        }
         else_expression = cc_parse_conditional_expression(parser);
+        cc_leave_expression_nesting(parser);
 
         node = cc_new_ast_node(CC_AST_CONDITIONAL_EXPRESSION, cc_span_from_start_to_previous(parser, start), NULL);
         cc_ast_add_child(node, condition);
@@ -1501,7 +1564,11 @@ static CCAstNode *cc_parse_assignment_expression(CCParser *parser) {
         CCAstNode *right;
 
         operator_token = cc_advance(parser);
+        if (!cc_enter_expression_nesting(parser)) {
+            return left;
+        }
         right = cc_parse_assignment_expression(parser);
+        cc_leave_expression_nesting(parser);
         if (right == NULL) {
             return left;
         }
@@ -1716,6 +1783,7 @@ static CCAstNode *cc_parse_for_statement(CCParser *parser) {
 
 static CCAstNode *cc_parse_expression_statement(CCParser *parser) {
     CCAstNode *node;
+    CCAstNode *expression;
     CCSpan start;
 
     start = cc_current_span(parser);
@@ -1724,8 +1792,16 @@ static CCAstNode *cc_parse_expression_statement(CCParser *parser) {
         return cc_new_ast_node(CC_AST_EMPTY_STATEMENT, cc_previous_span(parser), NULL);
     }
 
+    expression = cc_parse_expression(parser);
+    if (expression == NULL) {
+        /* Nothing was consumed; returning a node would let the compound
+         * statement loop spin forever on the same token. The caller
+         * synchronizes instead. */
+        return NULL;
+    }
+
     node = cc_new_ast_node(CC_AST_EXPRESSION_STATEMENT, start, NULL);
-    cc_ast_add_child(node, cc_parse_expression(parser));
+    cc_ast_add_child(node, expression);
     cc_expect(parser, CC_TOKEN_SEMICOLON, "expected ';' after expression");
     node->span = cc_span_from_start_to_previous(parser, start);
     return node;

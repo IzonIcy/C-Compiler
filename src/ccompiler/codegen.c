@@ -1,5 +1,6 @@
 #include "ccompiler/codegen.h"
 #include "ccompiler/sema.h"
+#include "ccompiler/util.h"
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -52,60 +53,6 @@ typedef struct {
     size_t unique_name_counter;
     const char *current_function_name;
 } CCCodegenContext;
-
-static void *cc_reallocate_or_die(void *memory, size_t size) {
-    void *result;
-
-    if (size == 0) {
-        size = 1;
-    }
-
-    result = realloc(memory, size);
-    if (result == NULL) {
-        fprintf(stderr, "fatal: out of memory\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return result;
-}
-
-static char *cc_duplicate_string(const char *text) {
-    size_t length;
-    char *copy;
-
-    length = strlen(text) + 1;
-    copy = cc_reallocate_or_die(NULL, length);
-    memcpy(copy, text, length);
-    return copy;
-}
-
-static char *cc_format_string(const char *format, ...) {
-    char stack_buffer[256];
-    char *heap_buffer;
-    int needed;
-    va_list args;
-    va_list copy;
-
-    va_start(args, format);
-    va_copy(copy, args);
-    needed = vsnprintf(stack_buffer, sizeof(stack_buffer), format, args);
-    va_end(args);
-
-    if (needed < 0) {
-        va_end(copy);
-        return cc_duplicate_string("<format_error>");
-    }
-
-    if ((size_t)needed < sizeof(stack_buffer)) {
-        va_end(copy);
-        return cc_duplicate_string(stack_buffer);
-    }
-
-    heap_buffer = cc_reallocate_or_die(NULL, (size_t)needed + 1);
-    vsnprintf(heap_buffer, (size_t)needed + 1, format, copy);
-    va_end(copy);
-    return heap_buffer;
-}
 
 static void cc_builder_append_range(CCStringBuilder *builder, const char *text, size_t length) {
     size_t required;
@@ -165,6 +112,10 @@ static void cc_add_diagnostic(CCCodegenContext *context, CCSpan span, const char
     int needed;
     va_list args;
     va_list copy;
+
+    if (!cc_diagnostic_buffer_can_add(&context->diagnostics, CC_DIAGNOSTIC_ERROR)) {
+        return;
+    }
 
     if (context->diagnostics.count == context->diagnostics.capacity) {
         cc_grow_diagnostic_buffer(&context->diagnostics);

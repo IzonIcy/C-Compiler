@@ -5,3 +5,9 @@ parse|examples/feature_showcase.c|0|function_definition: main
 check|tests/typedef_chain_ok.c|0|semantic analysis succeeded
 check|tests/test_error.c|1|use of undeclared identifier 'undeclared_var'
 codegen|examples/feature_showcase.c|0|func main(void) -> int
+# Regression: no infinite loop / no unbounded memory on unparseable statements
+parse|tests/pathological_statement.c|1|expected expression
+# Regression: no NULL deref on '?' without a condition
+parse|tests/pathological_conditional.c|1|expected expression
+# Regression: deep nesting is capped instead of overflowing the stack
+parse|tests/pathological_nesting.c|1|expression nesting too deep

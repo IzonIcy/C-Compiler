@@ -237,6 +237,10 @@ static void cc_add_diagnostic(CCLexer *lexer, CCSpan span, const char *format, .
     va_list args;
     va_list copy;
 
+    if (!cc_diagnostic_buffer_can_add(&lexer->diagnostics, CC_DIAGNOSTIC_ERROR)) {
+        return;
+    }
+
     if (lexer->diagnostics.count == lexer->diagnostics.capacity) {
         cc_grow_diagnostic_buffer(&lexer->diagnostics);
     }

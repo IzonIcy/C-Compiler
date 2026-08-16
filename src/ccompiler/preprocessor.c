@@ -131,6 +131,10 @@ static void cc_add_diagnostic(
     va_list args;
     va_list copy;
 
+    if (!cc_diagnostic_buffer_can_add(&preprocessor->diagnostics, CC_DIAGNOSTIC_ERROR)) {
+        return;
+    }
+
     if (preprocessor->diagnostics.count == preprocessor->diagnostics.capacity) {
         cc_grow_diagnostic_buffer(&preprocessor->diagnostics);
     }

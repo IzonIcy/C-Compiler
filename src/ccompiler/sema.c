@@ -210,6 +210,10 @@ static void cc_add_diagnostic(CCSemaContext *context, CCSpan span, const char *f
     va_list args;
     va_list copy;
 
+    if (!cc_diagnostic_buffer_can_add(&context->diagnostics, CC_DIAGNOSTIC_ERROR)) {
+        return;
+    }
+
     if (context->diagnostics.count == context->diagnostics.capacity) {
         cc_grow_diagnostic_buffer(&context->diagnostics);
     }
@@ -253,6 +257,10 @@ static void cc_add_warning(CCSemaContext *context, CCSpan span, const char *form
     va_list copy;
 
     if (!context->options->warnings_enabled) {
+        return;
+    }
+
+    if (!cc_diagnostic_buffer_can_add(&context->diagnostics, CC_DIAGNOSTIC_WARNING)) {
         return;
     }
 

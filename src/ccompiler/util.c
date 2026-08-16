@@ -67,3 +67,19 @@ char *cc_format_string(const char *format, ...) {
     va_end(copy);
     return heap_buffer;
 }
+
+bool cc_diagnostic_buffer_can_add(CCDiagnosticBuffer *buffer, CCDiagnosticSeverity severity) {
+    if (buffer->count < CC_MAX_DIAGNOSTICS) {
+        return true;
+    }
+
+    if (buffer->count == CC_MAX_DIAGNOSTICS) {
+        buffer->items[buffer->count].span = (CCSpan){0};
+        buffer->items[buffer->count].path = NULL;
+        buffer->items[buffer->count].message = cc_duplicate_string("too many errors; further diagnostics suppressed");
+        buffer->items[buffer->count].severity = severity;
+        buffer->count++;
+    }
+
+    return false;
+}
