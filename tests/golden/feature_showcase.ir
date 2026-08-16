@@ -1,0 +1,59 @@
+func mix(seed: ulong, scale: double) -> ulong
+entry:
+  var message : const char *
+  message = u8"lexer demo\n"
+  var suffix : const char
+  suffix = 65
+  var flags : ulong
+  flags = 811
+  var ratio : double
+  t0 = add .125e+2, 0x1.fp3
+  t1 = add t0, scale
+  ratio = t1
+  var i : int
+  i = 0
+  jump for.cond.0
+for.cond.0:
+  t2 = lt i, 4
+  cjump t2, for.body.1, for.end.3
+for.body.1:
+  t3 = shl flags, 1
+  flags = t3
+  t4 = bitand flags, 16
+  t5 = ne t4, 0
+  t6 = load message[i]
+  t7 = ne t6, 0
+  t8 = and t5, t7
+  cjump t8, if.then.4, if.end.5
+if.then.4:
+  t9 = load message[i]
+  t10 = cast ulong, t9
+  t11 = bitxor seed, t10
+  seed = t11
+  jump if.end.5
+if.end.5:
+  jump for.iter.2
+for.iter.2:
+  i = add i, 1
+  jump for.cond.0
+for.end.3:
+  cjump seed, cond.then.6, cond.else.7
+cond.then.6:
+  t12 = seed
+  jump cond.end.8
+cond.else.7:
+  t13 = add ratio, suffix
+  t14 = cast ulong, t13
+  t12 = t14
+  jump cond.end.8
+cond.end.8:
+  ret t12
+endfunc
+
+func main(void) -> int
+entry:
+  t15 = call mix(7, 0.25)
+  t16 = cast int, t15
+  ret t16
+endfunc
+

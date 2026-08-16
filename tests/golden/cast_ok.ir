@@ -1,0 +1,15 @@
+func main() -> int
+entry:
+  var x : int
+  x = 123
+  var p : void *
+  t0 = addr x
+  t1 = cast void *, t0
+  p = t1
+  var ip : int *
+  t2 = cast int *, p
+  ip = t2
+  t3 = load ip
+  ret t3
+endfunc
+

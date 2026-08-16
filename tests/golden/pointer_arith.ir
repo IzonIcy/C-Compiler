@@ -1,0 +1,16 @@
+func main() -> int
+entry:
+  var arr : int *
+  arr[0] = 1
+  arr[1] = 2
+  arr[2] = 3
+  arr[3] = 4
+  arr[4] = 5
+  var p : int *
+  p = arr
+  t0 = add p, 3
+  *t0 = 7
+  t1 = load arr[3]
+  ret t1
+endfunc
+

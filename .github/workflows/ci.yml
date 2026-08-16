@@ -41,3 +41,29 @@ jobs:
 
       - name: Run sanitizer tests
         run: make sanitizers CC=clang
+
+  werror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build and test with warnings as errors
+        run: make clean && make test CC=clang CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -Werror"
+
+  fuzz:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build libFuzzer harness
+        run: make fuzz-libfuzzer CC=clang
+
+      - name: Seed corpus and smoke-run fuzzer
+        run: |
+          mkdir -p build/fuzz-corpus
+          cp examples/*.c tests/*.c build/fuzz-corpus/
+          ./build/bin/fuzz-pipeline -max_total_time=30 -print_final_stats=1 build/fuzz-corpus

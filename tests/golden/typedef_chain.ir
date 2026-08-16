@@ -1,0 +1,7 @@
+func main() -> int
+entry:
+  var x : ourint
+  x = 3
+  ret x
+endfunc
+

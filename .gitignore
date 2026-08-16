@@ -4,3 +4,7 @@ build/
 
 # OpenCode config
 opencode.json
+
+# Agent configs (AGENTS.md is the committed source of truth)
+CLAUDE.md
+.github/copilot-instructions.md

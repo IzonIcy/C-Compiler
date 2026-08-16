@@ -1,0 +1,15 @@
+func get_a(s: struct) -> int
+entry:
+  t0 = load s.a
+  ret t0
+endfunc
+
+func main() -> int
+entry:
+  var s : struct
+  s.a = 42
+  s.b = 3.14
+  t1 = call get_a(s)
+  ret t1
+endfunc
+

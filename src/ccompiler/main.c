@@ -14,8 +14,6 @@
 
 typedef struct {
     bool dump_tokens;
-    bool dump_ast;
-    bool dump_ir;
     bool dump_ast_json;
     bool warnings_enabled;
 } CCCompilerOptions;
@@ -36,9 +34,7 @@ static void cc_print_usage(FILE *out, const char *program_name) {
     fprintf(out, "       %s [options] <path>\n", program_name);
     fprintf(out, "\noptions:\n");
     fprintf(out, "  --dump-tokens     print token stream after lexing\n");
-    fprintf(out, "  --dump-ast        print AST after parsing\n");
     fprintf(out, "  --dump-ast-json   print AST as JSON after parsing\n");
-    fprintf(out, "  --dump-ir         print IR after code generation\n");
     fprintf(out, "  -Wall             enable all warnings\n");
     fprintf(out, "  -h, --help        show this help message\n");
 }
@@ -75,13 +71,7 @@ static int cc_parse_options(int argc, char **argv, CCCompilerOptions *options, i
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--dump-tokens") == 0) {
             options->dump_tokens = true;
-        } else if (strcmp(argv[i], "--dump-ast") == 0) {
-            options->dump_ast = true;
         } else if (strcmp(argv[i], "--dump-ast-json") == 0) {
-            options->dump_ast_json = true;
-        } else if (strcmp(argv[i], "--dump-ir") == 0) {
-            options->dump_ir = true;
-        } else if (strcmp(argv[i], "-Wall") == 0) {
             options->warnings_enabled = true;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             return 0;

@@ -170,10 +170,16 @@ If your system requires elevated permissions for /usr/local/bin, use sudo.
 
 ## Verification
 
-Run the smoke-test suite:
+Run the smoke-test suite, including golden-file IR regression tests:
 
 ```bash
 make test
+```
+
+Regenerate golden files after an intentional codegen change:
+
+```bash
+UPDATE_GOLDEN=1 sh tests/golden_smoke.sh
 ```
 
 Run static analysis:
@@ -188,9 +194,27 @@ Run both:
 make verify
 ```
 
+Fuzz the compiler with sanitizers (works with any compiler):
+
+```bash
+make fuzz
+./build/bin/fuzz-standalone examples/*.c
+```
+
+On systems with the libFuzzer runtime (e.g. Linux with clang), build the
+coverage-guided harness instead:
+
+```bash
+make fuzz-libfuzzer
+mkdir -p build/fuzz-corpus
+cp examples/*.c tests/*.c build/fuzz-corpus/
+./build/bin/fuzz-pipeline -max_total_time=60 build/fuzz-corpus
+```
+
 The repository also includes a GitHub Actions workflow at
 .github/workflows/ci.yml that runs compiler-matrix tests (clang and gcc),
-static analysis, and sanitizer-backed test runs on pushes and pull requests.
+static analysis, sanitizer-backed test runs, a warnings-as-errors build, and
+a short fuzzing smoke run on pushes and pull requests.
 
 ## Limits
 
