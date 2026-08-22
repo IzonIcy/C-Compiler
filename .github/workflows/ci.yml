@@ -63,7 +63,11 @@ jobs:
         run: make fuzz-libfuzzer CC=clang
 
       - name: Seed corpus and smoke-run fuzzer
+        env:
+          # Huge allocations from adversarial input return NULL (exercising the
+          # compiler's OOM path) instead of ASan aborting the whole run.
+          ASAN_OPTIONS: allocator_may_return_null=1
         run: |
           mkdir -p build/fuzz-corpus
           cp examples/*.c tests/*.c build/fuzz-corpus/
-          ./build/bin/fuzz-pipeline -max_total_time=30 -timeout=5 -print_final_stats=1 build/fuzz-corpus
+          ./build/bin/fuzz-pipeline -max_total_time=30 -timeout=5 -print_final_stats=1 -rss_limit_mb=2048 build/fuzz-corpus
