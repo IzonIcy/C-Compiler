@@ -27,7 +27,6 @@ typedef struct {
 typedef struct {
     CCToken *items;
     size_t count;
-    /// @brief 
     size_t capacity;
 } CCTokenBuffer;
 
