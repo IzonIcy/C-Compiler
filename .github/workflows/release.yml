@@ -21,6 +21,9 @@ jobs:
       - uses: actions/checkout@v7
       - name: Build
         run: make
+      # Don't ship binaries that fail the repo's own suites.
+      - name: Verify
+        run: make test
       - name: Package
         run: |
           dir="C-Compiler-${GITHUB_REF_NAME#v}-${{ matrix.platform }}"

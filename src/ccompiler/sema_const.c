@@ -1,6 +1,7 @@
 #include "ccompiler/sema.h"
 #include "ccompiler/util.h"
 
+#include <limits.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -145,6 +146,39 @@ static CCConstValue cc_make_const_value(long long value) {
     return result;
 }
 
+/* Checked-arithmetic helpers for constant folding. Written with unsigned
+ * arithmetic so the compiler has no license to trap on overflow. */
+
+static bool cc_add_overflows(long long a, long long b) {
+    return (b > 0) ? (a > LLONG_MAX - b) : (a < LLONG_MIN - b);
+}
+
+static bool cc_sub_overflows(long long a, long long b) {
+    return (b < 0) ? (a > LLONG_MAX + b) : (a < LLONG_MIN + b);
+}
+
+static bool cc_mul_overflows(long long a, long long b) {
+    if (a == 0 || b == 0) {
+        return false;
+    }
+    if (a == -1) {
+        return b == LLONG_MIN;
+    }
+    if (b == -1) {
+        return a == LLONG_MIN;
+    }
+    return (a > LLONG_MAX / b) || (a < LLONG_MIN / b)
+           || ((a % b != 0) && (a / b < 0));
+}
+
+static bool cc_pos_overflow_shift_left(long long value, long long shift) {
+    return value > (LLONG_MAX >> shift);
+}
+
+static bool cc_neg_overflow_shift_left(long long value, long long shift) {
+    return value < (LLONG_MIN >> shift);
+}
+
 static CCConstValue cc_try_fold_binary_constant(const CCAstNode *node) {
     CCConstValue left;
     CCConstValue right;
@@ -159,25 +193,55 @@ static CCConstValue cc_try_fold_binary_constant(const CCAstNode *node) {
         return cc_invalid_const_value();
     }
 
+    /* Overflow, division corner cases, and shift exponents are undefined
+     * behavior in C — bail out of folding instead of tripping UBSan (or
+     * wrapping silently in release builds). */
     if (strcmp(node->text, "+") == 0) {
+        if (cc_add_overflows(left.value, right.value)) {
+            return cc_invalid_const_value();
+        }
         return cc_make_const_value(left.value + right.value);
     }
     if (strcmp(node->text, "-") == 0) {
+        if (cc_sub_overflows(left.value, right.value)) {
+            return cc_invalid_const_value();
+        }
         return cc_make_const_value(left.value - right.value);
     }
     if (strcmp(node->text, "*") == 0) {
+        if (cc_mul_overflows(left.value, right.value)) {
+            return cc_invalid_const_value();
+        }
         return cc_make_const_value(left.value * right.value);
     }
     if (strcmp(node->text, "/") == 0 && right.value != 0) {
+        if (left.value == LLONG_MIN && right.value == -1) {
+            return cc_invalid_const_value();
+        }
         return cc_make_const_value(left.value / right.value);
     }
     if (strcmp(node->text, "%") == 0 && right.value != 0) {
+        if (left.value == LLONG_MIN && right.value == -1) {
+            return cc_invalid_const_value();
+        }
         return cc_make_const_value(left.value % right.value);
     }
     if (strcmp(node->text, "<<") == 0) {
-        return cc_make_const_value(left.value << right.value);
+        if (right.value < 0 || right.value >= 64) {
+            return cc_invalid_const_value();
+        }
+        if (left.value < 0
+            ? cc_neg_overflow_shift_left(left.value, right.value)
+            : cc_pos_overflow_shift_left(left.value, right.value)) {
+            return cc_invalid_const_value();
+        }
+        return cc_make_const_value((long long)((unsigned long long)left.value
+                                               << right.value));
     }
     if (strcmp(node->text, ">>") == 0) {
+        if (right.value < 0 || right.value >= 64) {
+            return cc_invalid_const_value();
+        }
         return cc_make_const_value(left.value >> right.value);
     }
     if (strcmp(node->text, "&") == 0) {

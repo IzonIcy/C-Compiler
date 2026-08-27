@@ -62,6 +62,9 @@ jobs:
       - name: Build libFuzzer harness
         run: make fuzz-libfuzzer CC=clang
 
+      - name: Build parser-recovery harness
+        run: make fuzz-parse-libfuzzer CC=clang
+
       - name: Seed corpus and smoke-run fuzzer
         env:
           # Huge allocations from adversarial input return NULL (exercising the
@@ -71,3 +74,13 @@ jobs:
           mkdir -p build/fuzz-corpus
           cp examples/*.c tests/*.c build/fuzz-corpus/
           ./build/bin/fuzz-pipeline -max_total_time=30 -timeout=5 -print_final_stats=1 -rss_limit_mb=2048 build/fuzz-corpus
+
+      - name: Fuzz the standalone parser harness
+        env:
+          ASAN_OPTIONS: allocator_may_return_null=1
+        run: |
+          # The pipeline harness skips inputs that fail preprocessing/lexing,
+          # so parser error-recovery only gets exercised here.
+          mkdir -p build/fuzz-parse-corpus
+          cp examples/*.c tests/*.c build/fuzz-parse-corpus/
+          ./build/bin/fuzz-parse-libfuzzer -max_total_time=30 -timeout=5 -print_final_stats=1 -rss_limit_mb=2048 build/fuzz-parse-corpus

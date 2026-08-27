@@ -11,3 +11,6 @@ CLAUDE.md
 
 # Agent instruction files
 AGENTS.md
+
+# stray tool caches
+.ruff_cache/

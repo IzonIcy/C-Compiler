@@ -15,6 +15,7 @@
 
 #define CC_ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 #define CC_MAX_MACRO_EXPANSION_DEPTH 32
+#define CC_MAX_INCLUDE_DEPTH 200
 #define CC_PATH_BUFFER_SIZE 4096
 
 typedef struct {
@@ -53,6 +54,7 @@ typedef struct {
     size_t conditional_count;
     size_t conditional_capacity;
     CCPragmaOnceSet pragma_once_files;
+    size_t include_depth;
     bool in_block_comment;
 } CCPreprocessor;
 
@@ -1027,7 +1029,9 @@ static bool cc_simple_if_condition(CCPreprocessor *preprocessor, const char *tex
         return true;
     }
 
-    if (strncmp(text + index, "defined", 7) == 0) {
+    /* Word-boundary check: "definitely" must not match "defined". */
+    if (strncmp(text + index, "defined", 7) == 0
+        && (index + 7 >= length || !cc_identifier_part(text[index + 7]))) {
         index += 7;
         index = cc_skip_spaces(text, length, index);
         if (index < length && text[index] == '(') {
@@ -1292,6 +1296,13 @@ static void cc_preprocess_path(CCPreprocessor *preprocessor, const char *path, C
     size_t line_number;
     char *canonical_path;
 
+    /* Self-including or mutually recursive headers would otherwise recurse
+     * until the stack dies; cap the nesting like macro expansion. */
+    if (preprocessor->include_depth >= CC_MAX_INCLUDE_DEPTH) {
+        cc_add_diagnostic(preprocessor, path, 0, 1, 1, 1, "include nesting too deep");
+        return;
+    }
+
     canonical_path = cc_get_canonical_path(path);
     if (cc_pragma_once_contains(&preprocessor->pragma_once_files, canonical_path)) {
         free(canonical_path);
@@ -1303,6 +1314,8 @@ static void cc_preprocess_path(CCPreprocessor *preprocessor, const char *path, C
         cc_add_diagnostic(preprocessor, path, 0, 1, 1, 1, "unable to open source file");
         return;
     }
+
+    preprocessor->include_depth++;
 
     index = 0;
     line_number = 1;
@@ -1335,6 +1348,7 @@ static void cc_preprocess_path(CCPreprocessor *preprocessor, const char *path, C
         line_number++;
     }
 
+    preprocessor->include_depth--;
     cc_free_loaded_file(&file);
 }
 

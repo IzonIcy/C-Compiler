@@ -72,7 +72,7 @@ static int cc_parse_options(int argc, char **argv, CCCompilerOptions *options, i
         if (strcmp(argv[i], "--dump-tokens") == 0) {
             options->dump_tokens = true;
         } else if (strcmp(argv[i], "--dump-ast-json") == 0) {
-            options->warnings_enabled = true;
+            options->dump_ast_json = true;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             return 0;
         } else if (argv[i][0] == '-') {
@@ -502,6 +502,13 @@ static size_t cc_count_errors(const CCDiagnostic *diagnostics, size_t count) {
     return error_count;
 }
 
+static void cc_print_sema_success(const CCSemaResult *sema_result) {
+    printf("semantic analysis succeeded\n");
+    printf("functions: %zu\n", sema_result->function_count);
+    printf("globals: %zu\n", sema_result->global_count);
+    printf("typedefs: %zu\n", sema_result->typedef_count);
+}
+
 static int cc_run_check(const char *path) {
     CCPreprocessResult preprocess_result;
     CCLexResult lex_result;
@@ -522,25 +529,13 @@ static int cc_run_check(const char *path) {
 
     cc_sema_check_translation_unit(&parse_result, &sema_options, &sema_result);
     if (sema_result.diagnostics.count > 0) {
-        size_t error_count;
-        
         cc_print_diagnostics(stderr, &parse_result.source, sema_result.diagnostics.items, sema_result.diagnostics.count);
-        error_count = cc_count_errors(sema_result.diagnostics.items, sema_result.diagnostics.count);
-        if (error_count > 0) {
-            exit_code = 1;
-        } else {
-            printf("semantic analysis succeeded\n");
-            printf("functions: %zu\n", sema_result.function_count);
-            printf("globals: %zu\n", sema_result.global_count);
-            printf("typedefs: %zu\n", sema_result.typedef_count);
-            exit_code = 0;
-        }
+        exit_code = cc_count_errors(sema_result.diagnostics.items, sema_result.diagnostics.count) > 0 ? 1 : 0;
     } else {
-        printf("semantic analysis succeeded\n");
-        printf("functions: %zu\n", sema_result.function_count);
-        printf("globals: %zu\n", sema_result.global_count);
-        printf("typedefs: %zu\n", sema_result.typedef_count);
         exit_code = 0;
+    }
+    if (exit_code == 0) {
+        cc_print_sema_success(&sema_result);
     }
 
     cc_sema_result_free(&sema_result);
@@ -572,11 +567,8 @@ static int cc_run_codegen(const char *path) {
 
     cc_sema_check_translation_unit(&parse_result, &sema_options, &sema_result);
     if (sema_result.diagnostics.count > 0) {
-        size_t error_count;
-        
         cc_print_diagnostics(stderr, &parse_result.source, sema_result.diagnostics.items, sema_result.diagnostics.count);
-        error_count = cc_count_errors(sema_result.diagnostics.items, sema_result.diagnostics.count);
-        if (error_count > 0) {
+        if (cc_count_errors(sema_result.diagnostics.items, sema_result.diagnostics.count) > 0) {
             exit_code = 1;
             goto cleanup;
         }

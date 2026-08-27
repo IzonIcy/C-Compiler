@@ -1538,6 +1538,7 @@ static CCAstNode *cc_parse_conditional_expression(CCParser *parser) {
         cc_expect(parser, CC_TOKEN_COLON, "expected ':' in conditional expression");
         if (!cc_enter_expression_nesting(parser)) {
             cc_free_ast(then_expression);
+            cc_free_ast(condition);
             return NULL;
         }
         else_expression = cc_parse_conditional_expression(parser);

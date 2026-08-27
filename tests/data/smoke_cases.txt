@@ -11,3 +11,8 @@ parse|tests/pathological_statement.c|1|expected expression
 parse|tests/pathological_conditional.c|1|expected expression
 # Regression: deep nesting is capped instead of overflowing the stack
 parse|tests/pathological_nesting.c|1|expression nesting too deep
+# Regression: self-including headers hit the include-depth cap, not the stack
+preprocess|tests/include_cycle_a.c|1|include nesting too deep
+# Regression: const folding must reject UB shifts/overflow instead of tripping UBSan
+check|tests/shift_too_large.c|1|case label must be an integer constant expression
+check|tests/const_overflow.c|1|case label must be an integer constant expression
